@@ -16,6 +16,9 @@
 # Design notes:
 #   * A failure must be seen FAIL_STREAK passes in a row before it pages. A single
 #     blip during a deploy is not an outage and must not cry wolf.
+#   * fail pages as critical; warn nags once a day at warning severity. A monitor
+#     that pages the same way for "disk is 86% full" and "the site is down" gets
+#     muted, and then it protects nothing.
 #   * While something stays down you get re-paged every REPEAT_HOURS, not every
 #     2 minutes. Recovery always pages once, immediately.
 #   * Every pass writes a JSON snapshot to $STATUS_JSON. Serve that file and an
@@ -31,7 +34,8 @@ STATUS_JSON="${STATUS_JSON:-/var/www/fleet/fleet-status.json}"
 ALERT_LIB="${ALERT_LIB:-/root/lib-alert.sh}"
 
 FAIL_STREAK="${FAIL_STREAK:-2}"      # consecutive bad passes before paging
-REPEAT_HOURS="${REPEAT_HOURS:-6}"    # re-page cadence while still down
+REPEAT_HOURS="${REPEAT_HOURS:-6}"    # re-page cadence while a check is FAILING
+WARN_REPEAT_HOURS="${WARN_REPEAT_HOURS:-24}"  # warnings are not outages: nag daily, never hourly
 HTTP_TIMEOUT="${HTTP_TIMEOUT:-15}"
 CERT_WARN_DAYS="${CERT_WARN_DAYS:-14}"
 DISK_WARN_PCT="${DISK_WARN_PCT:-85}"
@@ -152,7 +156,10 @@ tail = f"{rem:,} queries left" if isinstance(rem, int) else "balance unknown"
 if isinstance(days, int):
     tail += f", ~{days}d at current burn"
     if when: tail += f" (runs out {when})"
-print({"ok": "ok", "warning": "warn", "critical": "fail"}.get(st, "warn") + "|MaxMind credits: " + tail)
+if st == "off":
+    print("ok|MaxMind not configured on this deployment (geo falls back to the free providers)")
+else:
+    print({"ok": "ok", "warning": "warn", "critical": "fail"}.get(st, "warn") + "|MaxMind credits: " + tail)
 PY
 )
   [ -n "$parsed" ] || parsed="warn|could not read MaxMind credits"
@@ -182,7 +189,7 @@ check_champbeam_system
 # ---------------------------------------------------------------- report
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FAILING=0; WARNING=0
-NEW_DOWN=(); RECOVERED=(); STILL_DOWN=()
+NEW_DOWN=(); RECOVERED=(); STILL_DOWN=(); WARNED=()
 
 for r in "${RESULTS[@]}"; do
   name="${r%%|*}"; rest="${r#*|}"; status="${rest%%|*}"; detail="${rest#*|}"
@@ -205,11 +212,17 @@ for r in "${RESULTS[@]}"; do
     streak=$((streak+1)); echo "$streak" > "$k.streak"
     if [ "$streak" -ge "$FAIL_STREAK" ]; then
       age=$(( $(date +%s) - alerted ))
-      if [ "$alerted" = 0 ]; then
-        NEW_DOWN+=("[$status] $name — $detail")
+      if [ "$status" = warn ]; then
+        # A warning is "look at this today", not "wake up". Nag daily at most.
+        if [ "$alerted" = 0 ] || [ "$age" -ge $((WARN_REPEAT_HOURS * 3600)) ]; then
+          WARNED+=("$name — $detail")
+          date +%s > "$k.alerted"
+        fi
+      elif [ "$alerted" = 0 ]; then
+        NEW_DOWN+=("$name — $detail")
         date +%s > "$k.alerted"
       elif [ "$age" -ge $((REPEAT_HOURS * 3600)) ]; then
-        STILL_DOWN+=("[$status] $name — $detail ($(( age / 3600 ))h)")
+        STILL_DOWN+=("$name — $detail (down $(( age / 3600 ))h)")
         date +%s > "$k.alerted"
       fi
     fi
@@ -238,6 +251,9 @@ if [ "$DRY_RUN" != 1 ]; then
   fi
   if [ ${#RECOVERED[@]} -gt 0 ]; then
     hermes_alert info "recovered" "$(printf '%s\n' "${RECOVERED[@]}")"
+  fi
+  if [ ${#WARNED[@]} -gt 0 ]; then
+    hermes_alert warning "${#WARNED[@]} warning(s)" "$(printf '%s\n' "${WARNED[@]}")"
   fi
 fi
 

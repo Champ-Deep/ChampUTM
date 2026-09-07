@@ -50,7 +50,10 @@ async def system_status(
     try:
         mm = await maxmind_usage.usage_summary(session, days=30)
         checks["maxmind"] = {
-            "status": mm["status"],
+            # "off" is a deliberate configuration, not a fault — a monitor must
+            # not page about a service this deployment was never meant to call.
+            "status": mm["status"] if mm["configured"] else "off",
+            "configured": mm["configured"],
             "queries_remaining": mm["queries_remaining"],
             "avg_daily": mm["avg_daily"],
             "days_left": mm["days_left"],

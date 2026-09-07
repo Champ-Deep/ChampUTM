@@ -75,10 +75,13 @@ async def test_thresholds_grade_the_balance(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_endpoints_need_auth_and_report(app_client):
+async def test_endpoints_need_auth_and_report(app_client, monkeypatch):
     assert (await app_client.get("/api/v1/system/maxmind")).status_code == 401
     assert (await app_client.get("/api/v1/system/status")).status_code == 401
 
+    # a deployment that really does call MaxMind, so the balance is graded
+    monkeypatch.setattr(settings, "maxmind_account_id", "123456")
+    monkeypatch.setattr(settings, "maxmind_license_key", "test-key")
     headers = await _key()
     await maxmind_usage.record_lookup(queries_remaining=42, ok=True)
 
@@ -92,6 +95,21 @@ async def test_endpoints_need_auth_and_report(app_client):
     # 42 credits is under the critical threshold -> the monitor must not read "ok"
     assert body["checks"]["maxmind"]["status"] == "critical"
     assert body["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_status_reports_off_when_the_service_is_not_configured(app_client, monkeypatch):
+    """A deployment with no MaxMind credentials is configured that way on
+    purpose. It must read as "off", never as a fault the monitor pages about."""
+    monkeypatch.setattr(settings, "maxmind_account_id", "")
+    monkeypatch.setattr(settings, "maxmind_license_key", "")
+
+    headers = await _key()
+    r = await app_client.get("/api/v1/system/status", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["checks"]["maxmind"]["status"] == "off"
+    assert r.json()["checks"]["maxmind"]["configured"] is False
+    assert r.json()["ok"] is True
 
 
 @pytest.mark.asyncio
