@@ -241,6 +241,17 @@ async def _lookup_ipinfo(ip_address: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # MaxMind GeoIP2 web service (GeoIP Insights / City) — HTTPS, datacenter-safe
 # ---------------------------------------------------------------------------
+async def _record_ws_usage(queries_remaining: Optional[int], *, ok: bool) -> None:
+    """Book one web-service call. Imported lazily so the geo chain keeps working
+    even if usage bookkeeping is unavailable, and never raises."""
+    try:
+        from app.services import maxmind_usage
+
+        await maxmind_usage.record_lookup(queries_remaining=queries_remaining, ok=ok)
+    except Exception:  # noqa: BLE001 - telemetry must never break geo
+        pass
+
+
 async def _lookup_maxmind_ws(ip_address: str) -> Optional[dict]:
     """Geo + ISP/VPN via the MaxMind GeoIP2 web service (GeoIP Insights).
 
@@ -276,7 +287,12 @@ async def _lookup_maxmind_ws(ip_address: str) -> Optional[dict]:
                 resp = await client.insights(ip_address)
     except Exception as e:  # noqa: BLE001 - AddressNotFound/auth/quota/network -> fail open
         logger.debug("MaxMind web service lookup failed for %s: %s", ip_address, e)
+        await _record_ws_usage(None, ok=False)
         return None
+
+    # MaxMind returns its own remaining-credit counter on every response, so the
+    # balance is observed for free — no billing API call, no extra query spent.
+    await _record_ws_usage(getattr(getattr(resp, "maxmind", None), "queries_remaining", None), ok=True)
 
     country = getattr(resp, "country", None)
     subdivisions = getattr(resp, "subdivisions", None)

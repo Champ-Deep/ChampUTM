@@ -202,6 +202,14 @@ class Settings(BaseSettings):
     maxmind_ws_host: str = "geoip.maxmind.com"
     maxmind_ws_endpoint: str = "insights"
 
+    # Credit + spend tracking. Every web-service response carries MaxMind's own
+    # "queries_remaining", so the balance is observed for free — no billing API.
+    # Set the unit price to whatever your credit pack actually cost per query
+    # (pack price / queries) to turn usage into dollars; 0 hides spend figures.
+    maxmind_unit_price_usd: float = 0.0
+    maxmind_credit_warn_threshold: int = 5000
+    maxmind_credit_crit_threshold: int = 1000
+
     # Company intent (reverse-IP firmographics). Provider-agnostic:
     #   "none"   - disabled.
     #   "asn"    - $0: reuse the ASN/network owner we already resolve via MaxMind

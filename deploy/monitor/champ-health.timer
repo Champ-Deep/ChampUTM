@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Champ fleet health check every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=champ-health.service
+
+[Install]
+WantedBy=timers.target

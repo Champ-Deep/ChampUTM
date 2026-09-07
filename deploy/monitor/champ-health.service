@@ -1,0 +1,11 @@
+[Unit]
+Description=Champ fleet health check (all deployed tools)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/champ-health.sh
+# Never let a slow endpoint pile passes on top of each other.
+TimeoutStartSec=180
+Nice=10

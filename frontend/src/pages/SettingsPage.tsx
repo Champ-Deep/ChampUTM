@@ -2,35 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  AlertTriangle,
-  BookmarkCheck,
-  CheckCircle2,
-  Copy,
-  Globe,
-  Info,
-  KeyRound,
-  Palette,
-  Plus,
-  RefreshCw,
-  Search,
-  ShoppingCart,
-  Star,
-  Trash2,
-  Zap,
-} from 'lucide-react';
+import { Activity, AlertTriangle, BookmarkCheck, CheckCircle2, Copy, Globe, Info, KeyRound, Palette, Plus, RefreshCw, Search, ShoppingCart, Star, Trash2, Zap } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, CardTitle, Input, useConfirm } from '../components/ui';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { ApiKeysSettings } from '../components/ApiKeysSettings';
 import { utmApi } from '../api/utm';
 import type { Domain, DomainSearchResult, DomainsConfig, DomainStatus } from '../api/utm';
 import { PresetsManager } from './PresetsManager';
+import { SystemSettings } from '../components/SystemSettings';
 import { apiErrorDetail, apiErrorStatus } from '../api/_shared';
 
-type SettingsTab = 'domains' | 'presets' | 'apikeys' | 'appearance';
+type SettingsTab = 'domains' | 'presets' | 'apikeys' | 'appearance' | 'system';
 
 function initialTab(param: string | null): SettingsTab {
-  if (param === 'presets' || param === 'appearance' || param === 'apikeys') return param;
+  if (param === 'presets' || param === 'appearance' || param === 'apikeys' || param === 'system')
+    return param;
   return 'domains';
 }
 
@@ -212,10 +198,23 @@ export function SettingsPage() {
             <Palette className="h-4 w-4 inline mr-1.5 -mt-0.5" />
             Appearance
           </button>
+          <button
+            onClick={() => setTab('system')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              tab === 'system'
+                ? 'border-brand-purple text-brand-purple'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Activity className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+            System
+          </button>
         </div>
       </div>
 
       {tab === 'appearance' && <AppearanceSettings />}
+
+      {tab === 'system' && <SystemSettings />}
 
       {tab === 'domains' && (
         <>

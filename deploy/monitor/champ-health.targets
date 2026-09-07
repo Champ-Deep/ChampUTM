@@ -1,0 +1,30 @@
+# champ-health targets — one line per public surface that must stay up.
+#   name | url | expected HTTP status | must-contain string (optional)
+#
+# The must-contain string is what turns "the server answered" into "the server
+# answered CORRECTLY" — a 200 that serves the wrong build is still an outage.
+# Adding a new tool is one line here; nothing else changes.
+
+# ── ChampBeam ────────────────────────────────────────────────────────────────
+ChampBeam API (share.lakeb2b.com) | https://share.lakeb2b.com/health          | 200 | healthy
+ChampBeam app (www.champbeam.com) | https://www.champbeam.com/                | 200 | Champbeam
+ChampBeam VPS standby             | https://champbeam-api.64.227.154.215.sslip.io/health | 200 | healthy
+
+# ── ChamPDF ──────────────────────────────────────────────────────────────────
+ChamPDF API                       | https://champdf-api.64.227.154.215.sslip.io/api/capabilities | 200 |
+ChamPDF app (Vercel)              | https://cham-pdf.vercel.app/              | 200 |
+# champdf.com currently has an EMPTY DNS zone (nameservers moved to InboxKit and the
+# records were never recreated), so this check fails for a real reason. Leave it on:
+# it is the only thing that will tell you the day it comes back — or goes dark again.
+ChamPDF site (champdf.com)        | https://champdf.com/                      | 200 |
+
+# ── Champ workspace / BearDrive ──────────────────────────────────────────────
+Champ workspace                   | https://champ-workspace.64.227.154.215.sslip.io/api/health | 200 |
+BearDrive                         | https://bdrive.64.227.154.215.sslip.io/health | 200 |
+
+# ── Deepify (Coolify control plane) ──────────────────────────────────────────
+Deepify                           | https://deepify.64.227.154.215.sslip.io/api/health | 200 |
+
+# ── ChampHarbinger — uncomment each line as it goes live ─────────────────────
+# ChampHarbinger API              | https://champharbinger-api.64.227.154.215.sslip.io/health | 200 |
+# ChampHarbinger app              | https://harbinger.<domain>/               | 200 |
